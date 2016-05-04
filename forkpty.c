@@ -50,7 +50,6 @@ int openpty(int *mfd, int *sfd, char *slavename, const struct termios *tp, const
 {
   char sbuf[256];
   if (!slavename) slavename = sbuf;
-  // ignore termios and winsize for now
   *mfd = open("/dev/ptmx", O_RDWR | O_NOCTTY);
   if (*mfd == -1) {
     fprintf(stderr, "open master failed\n");
@@ -76,7 +75,35 @@ int openpty(int *mfd, int *sfd, char *slavename, const struct termios *tp, const
     fprintf(stderr, "open slave failed\n");
     return -1;
   }
+  if (tp) {
+    if (ioctl(*sfd, TCSETS, tp) != 0) {
+      fprintf(stderr, "TCSETS failed\n");
+    }
+  }
+  if (wp) {
+    if (ioctl(*sfd, TIOCSWINSZ, wp) != 0) {
+      fprintf(stderr, "TIOCSWINSZ failed\n");
+    }
+  }
   return 0;
+}
+
+int
+login_tty(int sfd)
+{
+  int rv;
+  close(0);
+  close(1);
+  close(2);
+  if ((rv = setsid()) != 0) {
+    // return rv;
+  }
+  ioctl(sfd, TIOCSCTTY, 0);
+  dup2(sfd, 0);
+  dup2(sfd, 1);
+  dup2(sfd, 2);
+  if (sfd > 2) close(sfd);
+  return rv;
 }
 
 #ifdef FORKPTY
@@ -85,7 +112,6 @@ forkpty(int *mfd, char *slavename, const struct termios *tp, const struct winsiz
 {
   char sbuf[256];
   if (!slavename) slavename = sbuf;
-  // ignore termios and winsize for now
   *mfd = open("/dev/ptmx", O_RDWR | O_NOCTTY);
   if (*mfd == -1) {
     fprintf(stderr, "open master failed\n");
@@ -115,6 +141,16 @@ forkpty(int *mfd, char *slavename, const struct termios *tp, const struct winsiz
     setsid();
     int sfd = open(slavename, O_RDWR);
     ioctl(sfd, TIOCSCTTY, 0);
+    if (tp) {
+      if (ioctl(sfd, TCSETS, tp) != 0) {
+	fprintf(stderr, "TCSETS failed\n");
+      }
+    }
+    if (wp) {
+      if (ioctl(sfd, TIOCSWINSZ, wp) != 0) {
+	fprintf(stderr, "TIOCSWINSZ failed\n");
+      }
+    }
     dup2(sfd, 0);
     dup2(sfd, 1);
     dup2(sfd, 2);
@@ -130,9 +166,17 @@ main(int argc, char **argv)
 {
   int mfd = -1, sfd = -1;
   char slavename[256];
+  struct termios sane;
+  struct winsize ws;
+  if (tcgetattr(0, &sane) != 0) {
+    fprintf(stderr, "tcgetattr failed\n");
+  }
+  if (ioctl(0, TIOCGWINSZ, &ws) != 0) {
+    fprintf(stderr, "TIOCGWINSZ failed\n");
+  }
 #ifdef FORKPTY
   int pid;
-  if ((pid = forkpty(&mfd, slavename, NULL, NULL)) == 0) {
+  if ((pid = forkpty(&mfd, slavename, &sane, &ws)) == 0) {
     char *args[] = { "/bin/cat", NULL };
     return execv("/bin/cat", args);
   } else if (pid < 0) {
@@ -140,21 +184,12 @@ main(int argc, char **argv)
     exit(1);
   }
 #else
-  int rv = openpty(&mfd, &sfd, slavename, NULL, NULL);
+  int rv = openpty(&mfd, &sfd, slavename, &sane, &ws);
   if (rv == -1) exit(1);
   int pid;
   if ((pid = fork()) == 0) {
     close(mfd);
-    close(0);
-    close(1);
-    close(2);
-    close(sfd);
-    setsid();
-    sfd = open(slavename, O_RDWR);
-    dup2(sfd, 0);
-    dup2(sfd, 1);
-    dup2(sfd, 2);
-    if (sfd > 2) close(sfd);
+    rv = login_tty(sfd);
     if (rv == -1) exit(1);
     char *args[] = { "/bin/cat", NULL };
     return execv("/bin/cat", args);
