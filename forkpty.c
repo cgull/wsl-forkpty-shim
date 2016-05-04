@@ -1,5 +1,5 @@
 /*
-    Windows Subsystem for Linux openpty library shim
+    Windows Subsystem for Linux forkpty() library shim
     Copyright 2016 John Hood
 
     This program is free software: you can redistribute it and/or modify
@@ -31,10 +31,10 @@
 */
 
 // test:
-// cc -DMAIN -g -o openpty openpty.c -lutil
-// cc -DMAIN -DFORKPTY -g -o openpty openpty.c -lutil
+// cc -DMAIN -g -o forkpty forkpty.c -lutil
+// cc -DMAIN -DFORKPTY -g -o forkpty forkpty.c -lutil
 // shlib:
-// cc -DFORKPTY -shared -fPIC -g -o openpty.so openpty.c
+// cc -DFORKPTY -shared -fPIC -g -o forkpty.so forkpty.c
 
 #include <sys/types.h>
 #include <sys/stat.h>

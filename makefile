@@ -2,7 +2,7 @@
 
 CFLAGS=-g
 
-all: openpty.so
+all: forkpty.so
 
-openpty.so: openpty.c
+forkpty.so: forkpty.c
 	$(CC) $(CFLAGS) -DFORKPTY -shared -fPIC -g -o $@ $^
