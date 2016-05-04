@@ -34,7 +34,7 @@
 // cc -DMAIN -g -o openpty openpty.c -lutil
 // cc -DMAIN -DFORKPTY -g -o openpty openpty.c -lutil
 // shlib:
-// cc -DFORKPTY -shared -fPIC -g -o openpty.so openpty.c -lutil
+// cc -DFORKPTY -shared -fPIC -g -o openpty.so openpty.c
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -52,30 +52,28 @@ int openpty(int *mfd, int *sfd, char *slavename, const struct termios *tp, const
   if (!slavename) slavename = sbuf;
   // ignore termios and winsize for now
   *mfd = open("/dev/ptmx", O_RDWR | O_NOCTTY);
-  // *mfd = posix_openpt(O_RDWR | O_NOCTTY);
   if (*mfd == -1) {
-    printf("open master failed\n");
+    fprintf(stderr, "open master failed\n");
     return -1;
   }
   int rv = ptsname_r(*mfd, slavename, 256);
   if (rv != 0) {
-    printf("ptsname failed\n");
+    fprintf(stderr, "ptsname failed\n");
     return -1;
   }
-  printf("slavename is %s\n", slavename);
   rv = grantpt(*mfd);
   if (rv != 0) {
-    printf("grantpt failed\n");
+    fprintf(stderr, "grantpt failed\n");
     return -1;
   }
   rv = unlockpt(*mfd);
   if (rv != 0) {
-    printf("unlockpt failed\n");
+    fprintf(stderr, "unlockpt failed\n");
     return -1;
   }
   *sfd = open(slavename, O_RDWR | O_NOCTTY);
   if (*mfd == -1) {
-    printf("open slave failed\n");
+    fprintf(stderr, "open slave failed\n");
     return -1;
   }
   return 0;
@@ -89,32 +87,27 @@ forkpty(int *mfd, char *slavename, const struct termios *tp, const struct winsiz
   if (!slavename) slavename = sbuf;
   // ignore termios and winsize for now
   *mfd = open("/dev/ptmx", O_RDWR | O_NOCTTY);
-  // *mfd = posix_openpt(O_RDWR | O_NOCTTY);
   if (*mfd == -1) {
-    printf("open master failed\n");
+    fprintf(stderr, "open master failed\n");
     return -1;
   }
   int rv = ptsname_r(*mfd, slavename, 256);
   if (rv != 0) {
-    printf("ptsname failed\n");
+    fprintf(stderr, "ptsname failed\n");
     return -1;
   }
-  printf("slavename is %s\n", slavename);
   rv = grantpt(*mfd);
   if (rv != 0) {
-    printf("grantpt failed\n");
+    fprintf(stderr, "grantpt failed\n");
     return -1;
   }
   rv = unlockpt(*mfd);
   if (rv != 0) {
-    printf("unlockpt failed\n");
+    fprintf(stderr, "unlockpt failed\n");
     return -1;
   }
   int pid;
   if ((pid = fork()) == 0) {
-    FILE *errfd = fopen("child.err", "w");
-    setlinebuf(errfd);
-    fprintf(errfd, "pid is %d, tty is %s\n", getpid(), ttyname(0));
     close(*mfd);
     close(0);
     close(1);
@@ -140,26 +133,17 @@ main(int argc, char **argv)
 #ifdef FORKPTY
   int pid;
   if ((pid = forkpty(&mfd, slavename, NULL, NULL)) == 0) {
-    FILE *errfd = fopen("child.err", "w");
-    setlinebuf(errfd);
-    fprintf(errfd, "pid is %d, tty is %s\n", getpid(), ttyname(0));
     char *args[] = { "/bin/cat", NULL };
     return execv("/bin/cat", args);
-    // return system("/bin/cat");
   } else if (pid < 0) {
-    printf("fork failed\n");
+    fprintf(stderr, "fork failed\n");
     exit(1);
   }
-  printf("master fd %d, tty name %s\n", mfd, slavename);
 #else
   int rv = openpty(&mfd, &sfd, slavename, NULL, NULL);
-  printf("openpty rets %d, errno %d, errstr %s master fd %d slave fd %d\n", rv, errno, strerror(errno), mfd, sfd);
   if (rv == -1) exit(1);
   int pid;
   if ((pid = fork()) == 0) {
-    FILE *errfd = fopen("child.err", "w");
-    setlinebuf(errfd);
-    fprintf(errfd, "pid is %d, tty is %s\n", getpid(), ttyname(0));
     close(mfd);
     close(0);
     close(1);
@@ -171,23 +155,19 @@ main(int argc, char **argv)
     dup2(sfd, 1);
     dup2(sfd, 2);
     if (sfd > 2) close(sfd);
-    fprintf(errfd, "tty is now %s\n", ttyname(0));
-    fprintf(errfd, "login_tty rets %d, errno %d, errstr %s\n", rv, errno, strerror(errno));
     if (rv == -1) exit(1);
-    system("/usr/bin/tty");
     char *args[] = { "/bin/cat", NULL };
     return execv("/bin/cat", args);
   } else if (pid < 0) {
-    printf("fork failed\n");
+    fprintf(stderr, "fork failed\n");
     exit(1);
   }
 #endif
   usleep(100000);
   if (kill(pid, 0)) {
-    printf("child exited\n");
+    fprintf(stderr, "child exited\n");
     return 1;
   }
-  system("/usr/bin/tty");
   char *args[] = { "/bin/bash", NULL };
   execv("/bin/bash", args);
   return 0;
