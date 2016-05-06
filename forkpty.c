@@ -36,6 +36,8 @@
 // shlib:
 // cc -DFORKPTY -shared -fPIC -g -o forkpty.so forkpty.c
 
+#define _GNU_SOURCE
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -46,11 +48,23 @@
 #include <string.h>
 #include <unistd.h>
 
+int
+posix_openpt(int flags)
+{
+  return open("/dev/ptmx", flags);
+}
+
+int
+getpt(void)
+{
+  return posix_openpt(O_RDWR | O_NOCTTY);
+}
+
 int openpty(int *mfd, int *sfd, char *slavename, const struct termios *tp, const struct winsize *wp)
 {
   char sbuf[256];
   if (!slavename) slavename = sbuf;
-  *mfd = open("/dev/ptmx", O_RDWR | O_NOCTTY);
+  *mfd = posix_openpt(O_RDWR | O_NOCTTY);
   if (*mfd == -1) {
     fprintf(stderr, "open master failed\n");
     return -1;
@@ -112,7 +126,7 @@ forkpty(int *mfd, char *slavename, const struct termios *tp, const struct winsiz
 {
   char sbuf[256];
   if (!slavename) slavename = sbuf;
-  *mfd = open("/dev/ptmx", O_RDWR | O_NOCTTY);
+  *mfd = posix_openpt(O_RDWR | O_NOCTTY);
   if (*mfd == -1) {
     fprintf(stderr, "open master failed\n");
     return -1;
