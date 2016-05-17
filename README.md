@@ -9,7 +9,7 @@ with glibc's `forkpty()`.  The blocker I found is that
 `statvfs("/dev/pts/")` fails, but I'm sure there are others.
 
 However, the ptys are not completely unusable.  This is a simpler
-implementation that dodges some pty bugs, so that `script` and [with
+implementation that dodges some pty bugs, so that `script` and ([with
 some hacks](https://github.com/cgull/mosh/tree/wsl-workarounds))
 Mosh's `mosh-server` (and optional `termemu` example program) can run.
 It implements `forkpty()`/`openpty()`/`login_tty()`, the core BSD API
