@@ -1,3 +1,9 @@
+# Stale and deprecated
+
+Windows Subsystem for Linux has working ptys in the Anniversary
+update, and long before in the fast ring releases.  You don't need
+this any more.
+
 ##forkpty shlib hack##
 
 This is a hack to get ptys somewhat working on Windows 10 fast-ring
